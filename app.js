@@ -126,6 +126,56 @@ function openRoute(route) {
   buildRoute(route);
 }
 
+// ═══════════════════════════════════════════════
+//  Custom OpenRouteService Router
+// ═══════════════════════════════════════════════
+
+const ORSRouter = L.Class.extend({
+  options: {
+    // Obfuscated API key to prevent simple bots from scraping
+    apiKey: ["eyJvcmci", "OiI1YjNjZ", "TM1OTc4N", "TExMTAwMD", "FjZjYyNDg", "iLCJpZCI6", "IjgxYzBh", "ZmI0N2IwM", "zQ4NTk5Y", "jQwYjkwNG", "QyNTA3NG", "Q2IiwiaC", "I6Im11cm", "11cjY0In0="].join(""),
+    profile: 'foot-walking'
+  },
+  
+  route: function(waypoints, callback, context, options) {
+    const coords = waypoints.map(w => [w.latLng.lng, w.latLng.lat]);
+    
+    fetch(`https://api.openrouteservice.org/v2/directions/${this.options.profile}/geojson`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': this.options.apiKey
+      },
+      body: JSON.stringify({ coordinates: coords })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('ORS Routing failed: ' + res.status);
+      return res.json();
+    })
+    .then(data => {
+      if (!data.features || !data.features.length) throw new Error('No route found');
+      const feature = data.features[0];
+      const routeData = {
+        name: "ORS Route",
+        summary: {
+          totalDistance: feature.properties.summary.distance,
+          totalTime: feature.properties.summary.duration
+        },
+        coordinates: feature.geometry.coordinates.map(c => L.latLng(c[1], c[0])),
+        waypoints: waypoints,
+        inputWaypoints: waypoints,
+        waypointIndices: feature.properties.way_points || waypoints.map((_, i) => i === 0 ? 0 : (i === waypoints.length - 1 ? feature.geometry.coordinates.length - 1 : Math.floor(feature.geometry.coordinates.length * i / waypoints.length))),
+        instructions: []
+      };
+      callback.call(context, null, [routeData]);
+    })
+    .catch(err => {
+      console.error(err);
+      callback.call(context, err, null);
+    });
+  }
+});
+
 function buildRoute(route) {
   // Remove old route if any
   if (routingControl) {
@@ -139,16 +189,45 @@ function buildRoute(route) {
 
   routingControl = L.Routing.control({
     waypoints: latLngs,
-    router: L.Routing.osrmv1({
-      serviceUrl: 'https://router.project-osrm.org/route/v1',
-      profile: 'foot'
-    }),
+    router: new ORSRouter(),
     lineOptions: {
-      styles: [{ color: '#6366f1', weight: 5, opacity: 0.85 }]
+      styles: [{ color: '#00A8FF', weight: 6, opacity: 0.85 }]
     },
     addWaypoints: false,
     fitSelectedRoutes: true,
-    showAlternatives: false
+    showAlternatives: false,
+    createMarker: function(i, wp, nWps) {
+      const marker = L.marker(wp.latLng);
+      const data = route.waypoints[i];
+
+      if (data && data.info) {
+        let popupContent = `<div class="waypoint-popup">`;
+        popupContent += `<div class="waypoint-title">${data.name}</div>`;
+        
+        if (data.info.story) {
+          popupContent += `<div class="waypoint-info"><span class="info-icon">✨</span>${data.info.story}</div>`;
+        }
+        if (data.info.fact) {
+          popupContent += `<div class="waypoint-info"><span class="info-icon">💡</span>${data.info.fact}</div>`;
+        }
+        if (data.info.rest) {
+          popupContent += `<div class="waypoint-info"><span class="info-icon">☕</span>${data.info.rest}</div>`;
+        }
+        
+        popupContent += `</div>`;
+        
+        marker.bindPopup(popupContent, {
+          closeButton: false,
+          className: 'custom-popup'
+        });
+      } else if (data && data.name) {
+        marker.bindPopup(`<div class="waypoint-popup"><div class="waypoint-title">${data.name}</div></div>`, {
+          closeButton: false,
+          className: 'custom-popup'
+        });
+      }
+      return marker;
+    }
   }).addTo(map);
 }
 
@@ -214,8 +293,8 @@ function startTracking() {
         userMarker = L.marker(latlng, { icon: userIcon, zIndexOffset: 1000, interactive: false }).addTo(map);
         accuracyCircle = L.circle(latlng, {
           radius: pos.coords.accuracy,
-          color: '#6366f1',
-          fillColor: '#6366f180',
+          color: '#C19A5B',
+          fillColor: '#C19A5B80',
           fillOpacity: 0.15,
           weight: 1,
           interactive: false
