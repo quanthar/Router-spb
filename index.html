@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Пешеходные маршруты по Санкт-Петербургу на интерактивной карте">
+  <title>Прогулки по Петербургу</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Leaflet Routing Machine CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══ Welcome / Route Selection Screen ═══ -->
+  <div id="welcome-screen">
+    <div class="welcome-overlay"></div>
+
+    <div class="welcome-content">
+      <div class="welcome-header">
+        <div class="welcome-icon">🏛️</div>
+        <h1 class="welcome-title">Прогулки по Петербургу</h1>
+        <p class="welcome-subtitle">Выберите маршрут и отправляйтесь на прогулку по одному из красивейших городов мира</p>
+      </div>
+
+      <div id="routes-list" class="routes-list">
+        <!-- Route cards injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Map Screen (hidden until route selected) ═══ -->
+  <div id="map-screen" class="hidden">
+    <div id="map"></div>
+
+    <!-- Back button overlay -->
+    <button id="back-btn" class="back-btn" title="Вернуться к выбору маршрута">← Маршруты</button>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet Routing Machine JS -->
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
+
+  <!-- App logic -->
+  <script src="app.js"></script>
+
+</body>
+</html>
