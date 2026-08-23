@@ -127,33 +127,38 @@ function openRoute(route) {
 }
 
 // ═══════════════════════════════════════════════
-//  Custom OpenRouteService Router
+//  Custom Hybrid Router (ORS -> OSRM -> Direct Fallback)
 // ═══════════════════════════════════════════════
 
-const ORSRouter = L.Class.extend({
+const HybridRouter = L.Class.extend({
   options: {
     // Obfuscated API key to prevent simple bots from scraping
     apiKey: ["eyJvcmci", "OiI1YjNjZ", "TM1OTc4N", "TExMTAwMD", "FjZjYyNDg", "iLCJpZCI6", "IjgxYzBh", "ZmI0N2IwM", "zQ4NTk5Y", "jQwYjkwNG", "QyNTA3NG", "Q2IiwiaC", "I6Im11cm", "11cjY0In0="].join(""),
     profile: 'foot-walking'
   },
   
-  route: function(waypoints, callback, context, options) {
+  route: async function(waypoints, callback, context, options) {
     const coords = waypoints.map(w => [w.latLng.lng, w.latLng.lat]);
-    
-    fetch(`https://api.openrouteservice.org/v2/directions/${this.options.profile}/geojson`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': this.options.apiKey
-      },
-      body: JSON.stringify({ coordinates: coords })
-    })
-    .then(res => {
-      if (!res.ok) throw new Error('ORS Routing failed: ' + res.status);
-      return res.json();
-    })
-    .then(data => {
-      if (!data.features || !data.features.length) throw new Error('No route found');
+
+    // 1. Попытка через OpenRouteService
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`https://api.openrouteservice.org/v2/directions/${this.options.profile}/geojson`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': this.options.apiKey
+        },
+        body: JSON.stringify({ coordinates: coords }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) throw new Error('ORS status ' + res.status);
+      const data = await res.json();
+      if (!data.features || !data.features.length) throw new Error('No ORS features');
+
       const feature = data.features[0];
       const routeData = {
         name: "ORS Route",
@@ -164,15 +169,62 @@ const ORSRouter = L.Class.extend({
         coordinates: feature.geometry.coordinates.map(c => L.latLng(c[1], c[0])),
         waypoints: waypoints,
         inputWaypoints: waypoints,
-        waypointIndices: feature.properties.way_points || waypoints.map((_, i) => i === 0 ? 0 : (i === waypoints.length - 1 ? feature.geometry.coordinates.length - 1 : Math.floor(feature.geometry.coordinates.length * i / waypoints.length))),
+        waypointIndices: feature.properties.way_points || waypoints.map((_, i) => Math.floor(feature.geometry.coordinates.length * i / (waypoints.length - 1 || 1))),
         instructions: []
       };
       callback.call(context, null, [routeData]);
-    })
-    .catch(err => {
-      console.error(err);
-      callback.call(context, err, null);
-    });
+      return;
+    } catch (orsErr) {
+      console.warn('ORS недоступен (' + orsErr.message + '), переключаемся на OSRM...');
+    }
+
+    // 2. Резервный роутер: OSRM Public Routing
+    try {
+      const coordStr = coords.map(c => `${c[0]},${c[1]}`).join(';');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const osrmRes = await fetch(`https://router.project-osrm.org/route/v1/foot/${coordStr}?overview=full&geometries=geojson`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!osrmRes.ok) throw new Error('OSRM status ' + osrmRes.status);
+      const osrmData = await osrmRes.json();
+      if (!osrmData.routes || !osrmData.routes.length) throw new Error('No OSRM routes');
+
+      const r = osrmData.routes[0];
+      const routeData = {
+        name: "OSRM Route",
+        summary: {
+          totalDistance: r.distance,
+          totalTime: r.duration
+        },
+        coordinates: r.geometry.coordinates.map(c => L.latLng(c[1], c[0])),
+        waypoints: waypoints,
+        inputWaypoints: waypoints,
+        waypointIndices: waypoints.map((_, i) => Math.floor(r.geometry.coordinates.length * i / (waypoints.length - 1 || 1))),
+        instructions: []
+      };
+      callback.call(context, null, [routeData]);
+      return;
+    } catch (osrmErr) {
+      console.warn('OSRM недоступен (' + osrmErr.message + '), соединяем прямой линией...');
+    }
+
+    // 3. Аварийный fallback: соединение точек напрямую
+    const fallbackRoute = {
+      name: "Direct Route",
+      summary: {
+        totalDistance: 0,
+        totalTime: 0
+      },
+      coordinates: waypoints.map(w => w.latLng),
+      waypoints: waypoints,
+      inputWaypoints: waypoints,
+      waypointIndices: waypoints.map((_, i) => i),
+      instructions: []
+    };
+    callback.call(context, null, [fallbackRoute]);
   }
 });
 
@@ -187,9 +239,12 @@ function buildRoute(route) {
 
   const latLngs = route.waypoints.map(p => L.latLng(p.lat, p.lng));
 
+  // Масштабируем карту сразу под все точки маршрута
+  map.fitBounds(L.latLngBounds(latLngs), { padding: [60, 60], maxZoom: 15 });
+
   routingControl = L.Routing.control({
     waypoints: latLngs,
-    router: new ORSRouter(),
+    router: new HybridRouter(),
     lineOptions: {
       styles: [{ color: '#00A8FF', weight: 6, opacity: 0.85 }]
     },
