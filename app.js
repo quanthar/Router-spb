@@ -372,7 +372,68 @@ function startTracking() {
 }
 
 // ═══════════════════════════════════════════════
+//  5. Welcome Postcard Modal (First Visit)
+// ═══════════════════════════════════════════════
+
+const postcardModal    = document.getElementById('postcard-modal');
+const postcardCloseX   = document.getElementById('postcard-close-x');
+const postcardCloseBtn = document.getElementById('postcard-close-btn');
+const openPostcardBtn  = document.getElementById('open-postcard-btn');
+
+function showPostcard() {
+  if (!postcardModal) return;
+  postcardModal.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    postcardModal.classList.add('visible');
+  });
+}
+
+function hidePostcard() {
+  if (!postcardModal) return;
+  postcardModal.classList.remove('visible');
+  setTimeout(() => {
+    postcardModal.classList.add('hidden');
+  }, 350);
+  try {
+    localStorage.setItem('birthdayPostcardSeen', 'true');
+  } catch (e) {
+    console.warn('LocalStorage unavailable:', e);
+  }
+}
+
+function initPostcardModal() {
+  let hasSeen = false;
+  try {
+    hasSeen = localStorage.getItem('birthdayPostcardSeen');
+  } catch (e) {
+    console.warn('LocalStorage unavailable:', e);
+  }
+
+  // Показываем автоматически только при первом открытии
+  if (!hasSeen) {
+    setTimeout(() => {
+      showPostcard();
+    }, 300);
+  }
+
+  if (postcardCloseX) postcardCloseX.addEventListener('click', hidePostcard);
+  if (postcardCloseBtn) postcardCloseBtn.addEventListener('click', hidePostcard);
+  if (openPostcardBtn) openPostcardBtn.addEventListener('click', showPostcard);
+
+  // Закрытие при клике по фону
+  if (postcardModal) {
+    postcardModal.addEventListener('click', (e) => {
+      if (e.target === postcardModal) {
+        hidePostcard();
+      }
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════
 //  Boot
 // ═══════════════════════════════════════════════
 
 loadRoutes();
+initPostcardModal();
+

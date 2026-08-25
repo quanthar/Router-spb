@@ -32,10 +32,34 @@
         <div class="birthday-eyebrow">С Днём Рождения!</div>
         <h1 class="welcome-title">Ваша праздничная прогулка по Петербургу</h1>
         <p class="welcome-subtitle">Мы приготовили для вас особенные маршруты. Выберите свой и наслаждайтесь красотой этого дня.</p>
+        <button id="open-postcard-btn" class="postcard-reopen-btn" title="Открыть праздничную открытку">
+          💌 Открытка от Игоря
+        </button>
       </div>
 
       <div id="routes-list" class="routes-list">
         <!-- Route cards injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Postcard Modal (First Visit / Greeting) ═══ -->
+  <div id="postcard-modal" class="postcard-modal-backdrop hidden">
+    <div class="postcard-container">
+      <button id="postcard-close-x" class="postcard-close-x" title="Закрыть">✕</button>
+      
+      <div class="postcard-card">
+        <div class="postcard-image-wrapper">
+          <img src="postcard.jpg" alt="С Днём Рождения!" class="postcard-image" />
+        </div>
+        
+        <div class="postcard-body">
+          <div class="postcard-sender">От Игоря</div>
+          <p class="postcard-message">Желаю вам прекрасной прогулки по нашему городу!</p>
+          <button id="postcard-close-btn" class="postcard-action-btn">
+            <span>Закрыть</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
